@@ -1,7 +1,7 @@
 # 🛒 Walmart Demand Forecasting Dashboard
 
 > End-to-end retail demand forecasting using LightGBM trained on 
-> the Walmart M5 Kaggle dataset — deployed as an interactive dashboard.
+> the Walmart M5 Kaggle dataset — deployed publicly using Streamlit Cloud.
 
 🚀 **[Live Demo →](https://walmart-smart-demand-forecasting.streamlit.app/)**
 
@@ -17,6 +17,38 @@
 
 *Evaluated on WRMSSE — lower is better.*
 *Best public score of 0.638 represents a 47% improvement over naive baseline (~1.20).*
+
+---
+
+# 📂 Dataset
+
+Dataset used:
+- Walmart M5 Forecasting Dataset
+
+Includes:
+- Historical Walmart sales
+- Calendar events
+- Product/store hierarchy
+- Retail demand patterns
+
+Source:
+https://www.kaggle.com/competitions/m5-forecasting-accuracy
+
+---
+
+# 💡 Business Problem
+
+Retailers often struggle with:
+- stockouts
+- overstocking
+- seasonal demand spikes
+- inventory inefficiency
+
+This forecasting system helps estimate future product demand to support:
+- inventory optimization
+- supply chain planning
+- retail analytics
+- operational forecasting
 
 ---
 
