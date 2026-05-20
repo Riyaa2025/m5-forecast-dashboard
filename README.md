@@ -5,6 +5,10 @@
 
 🚀 **[Live Demo →](https://walmart-smart-demand-forecasting.streamlit.app/)**
 
+## Dashboard Preview
+
+![Dashboard](screenshot.jpeg)
+
 
 ---
 
