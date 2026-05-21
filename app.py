@@ -139,6 +139,12 @@ historical = pd.DataFrame({
     "sales": hist_values
 })
 
+historical["sales"] = (
+    historical["sales"]
+    .rolling(window=3, min_periods=1)
+    .mean()
+)
+
 historical = historical.merge(
     calendar_df[["d", "date", "event_name_1"]],
     on="d",
@@ -183,11 +189,23 @@ recent_avg = historical["sales"].tail(30).mean()
 forecast_avg = np.mean(raw_forecast)
 
 scale_factor = recent_avg / forecast_avg
+trend_adjustment = np.random.uniform(0.92, 1.08)
 
-forecast_values = [
-    val * scale_factor * 1.05
+forecast_values = pd.Series([
+    val * scale_factor * trend_adjustment
     for val in raw_forecast
-]
+]).rolling(
+    window=5,
+    min_periods=1
+).mean().values
+
+# Dampen excessive spikes
+forecast_mean = np.mean(forecast_values)
+
+forecast_values = (
+    0.65 * forecast_values
+    + 0.35 * forecast_mean
+)
 
 # -------------------------------------------------
 # FUTURE DATES
@@ -405,10 +423,13 @@ with summary_col2:
 
     growth = round(
         (
-            forecast_values[-1] - forecast_values[0]
-        ) / forecast_values[0] * 100,
+            forecast_values.mean()
+            - historical["sales"].tail(28).mean()
+        )
+        / historical["sales"].tail(28).mean()
+        * 100,
         1
-    )
+)
 
     st.metric(
         "28-Day Demand Change",
@@ -436,8 +457,11 @@ weekly_forecast = int(sum(forecast_values[:7]))
 
 growth_percent = round(
     (
-        forecast_values[-1] - forecast_values[0]
-    ) / forecast_values[0] * 100,
+        forecast_values.mean()
+        - historical["sales"].tail(28).mean()
+    )
+    / historical["sales"].tail(28).mean()
+    * 100,
     1
 )
 
