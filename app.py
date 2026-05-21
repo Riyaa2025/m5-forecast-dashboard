@@ -189,7 +189,7 @@ recent_avg = historical["sales"].tail(30).mean()
 forecast_avg = np.mean(raw_forecast)
 
 scale_factor = recent_avg / forecast_avg
-trend_adjustment = np.random.uniform(0.92, 1.08)
+trend_adjustment = 1.0
 
 forecast_values = pd.Series([
     val * scale_factor * trend_adjustment
