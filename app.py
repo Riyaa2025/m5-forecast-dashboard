@@ -31,13 +31,13 @@ h1, h2, h3 {
 }
 
 .metric-card {
-    background: rgba(255,255,255,0.75);
+    background: rgba(255,255,255,0.78);
     backdrop-filter: blur(12px);
     padding: 22px;
-    border-radius: 20px;
+    border-radius: 22px;
     text-align: center;
-    box-shadow: 0px 4px 15px rgba(0,0,0,0.06);
-    border: 1px solid rgba(255,255,255,0.4);
+    box-shadow: 0px 4px 18px rgba(0,0,0,0.06);
+    border: 1px solid rgba(255,255,255,0.5);
 }
 
 .metric-title {
@@ -50,7 +50,7 @@ h1, h2, h3 {
 .metric-value {
     font-size: 32px;
     font-weight: bold;
-    color: #52527a;
+    color: #5b5b87;
 }
 
 .metric-sub {
@@ -66,12 +66,10 @@ h1, h2, h3 {
 # -------------------------------------------------
 st.title("🛒 Walmart Demand Forecasting Dashboard")
 
-st.markdown(
-    """
-    AI-powered retail demand forecasting using
-    LightGBM and Walmart M5 competition data.
-    """
-)
+st.markdown("""
+AI-powered retail demand forecasting using 
+LightGBM and Walmart M5 competition data.
+""")
 
 # -------------------------------------------------
 # LOAD DATA
@@ -87,11 +85,6 @@ def load_data():
 
 
 sales_df, calendar_df, submission_df = load_data()
-
-# -------------------------------------------------
-# CLEAN PRODUCT LABELS
-# -------------------------------------------------
-sales_df["display_name"] = sales_df["item_id"]
 
 # -------------------------------------------------
 # SIDEBAR
@@ -117,13 +110,9 @@ filtered_items = sales_df[
     (sales_df["cat_id"] == category)
 ]
 
-item = st.sidebar.selectbox(
-    "🛍 Select Product",
-    sorted(filtered_items["display_name"].unique())
-)
-
 # -------------------------------------------------
 # HISTORICAL SALES
+# CATEGORY + STORE LEVEL
 # -------------------------------------------------
 d_cols = [col for col in sales_df.columns if col.startswith("d_")]
 
@@ -139,6 +128,7 @@ historical = pd.DataFrame({
     "sales": hist_values
 })
 
+# Slight smoothing
 historical["sales"] = (
     historical["sales"]
     .rolling(window=3, min_periods=1)
@@ -151,10 +141,13 @@ historical = historical.merge(
     how="left"
 )
 
-historical["date"] = pd.to_datetime(historical["date"])
+historical["date"] = pd.to_datetime(
+    historical["date"]
+)
 
 # -------------------------------------------------
 # FORECAST
+# CATEGORY + STORE LEVEL
 # -------------------------------------------------
 submission_df["cat_id"] = submission_df["id"].apply(
     lambda x: x.split("_")[0]
@@ -172,23 +165,25 @@ grouped_forecast = submission_df[
     (submission_df["cat_id"] == category)
 ]
 
-# Raw forecasts
 raw_forecast = []
 
 for i in range(1, 29):
 
-    total_forecast = grouped_forecast[f"F{i}"].sum()
+    total_forecast = grouped_forecast[
+        f"F{i}"
+    ].sum()
 
     raw_forecast.append(total_forecast)
 
 # -------------------------------------------------
-# SMOOTH FORECAST SCALING
+# FORECAST SMOOTHING
 # -------------------------------------------------
 recent_avg = historical["sales"].tail(30).mean()
 
 forecast_avg = np.mean(raw_forecast)
 
 scale_factor = recent_avg / forecast_avg
+
 trend_adjustment = 1.0
 
 forecast_values = pd.Series([
@@ -223,7 +218,7 @@ forecast_df = pd.DataFrame({
 })
 
 # -------------------------------------------------
-# METRICS
+# KPI METRICS
 # -------------------------------------------------
 avg_forecast = round(
     forecast_df["forecast"].mean(),
@@ -242,7 +237,7 @@ volatility = forecast_df["forecast"].std()
 if volatility < 50:
     risk = "Stable Demand"
 
-elif volatility < 150:
+elif volatility < 120:
     risk = "Moderate Variability"
 
 else:
@@ -415,7 +410,7 @@ summary_col1, summary_col2, summary_col3 = st.columns(3)
 with summary_col1:
 
     st.metric(
-        "Total Forecasted Units",
+        "28-Day Forecasted Units",
         f"{int(sum(forecast_values)):,}"
     )
 
@@ -429,12 +424,22 @@ with summary_col2:
         / historical["sales"].tail(28).mean()
         * 100,
         1
-)
+    )
+
+    if growth > 1.5:
+        growth_label = f"🟢 ↑ {growth}%"
+
+    elif growth < -1.5:
+        growth_label = f"🔴 ↓ {abs(growth)}%"
+
+    else:
+        growth_label = "🟡 Stable"
 
     st.metric(
         "28-Day Demand Change",
-        f"{growth}%"
+        growth_label
     )
+    
 
 with summary_col3:
 
@@ -449,11 +454,86 @@ with summary_col3:
     )
 
 # -------------------------------------------------
+# TOP PRODUCTS TO RESTOCK
+# -------------------------------------------------
+st.subheader("🛒 Top Products to Restock")
+
+top_products = []
+
+category_products = sales_df[
+    (sales_df["store_id"] == store) &
+    (sales_df["cat_id"] == category)
+]["item_id"].unique()
+
+for product in category_products:
+
+    row_id = f"{product}_{store}_validation"
+
+    product_forecast = submission_df[
+        submission_df["id"] == row_id
+    ]
+
+    if not product_forecast.empty:
+
+        total_units = product_forecast[
+            [f"F{i}" for i in range(1, 29)]
+        ].sum(axis=1).values[0]
+
+    product_hist = sales_df[
+        (sales_df["item_id"] == product) &
+        (sales_df["store_id"] == store)
+    ][d_cols].sum().values[-28:]
+
+    product_avg_old = np.mean(
+        product_hist[:14]
+    )
+
+    product_avg_new = np.mean(
+        product_hist[14:]
+    )
+
+    change = (
+        product_avg_new - product_avg_old
+    ) / (product_avg_old + 1)
+
+    if change > 0.05:
+        trend = "🟢 Rising"
+
+    elif change < -0.05:
+        trend = "🔴 Declining"
+
+    else:
+        trend = "🟡 Stable"
+
+    top_products.append({
+        "Product": product,
+        "28-Day Forecast": int(total_units),
+        "Trend": trend
+    })
+
+top_products_df = pd.DataFrame(
+    top_products
+)
+
+top_products_df = top_products_df.sort_values(
+    by="28-Day Forecast",
+    ascending=False
+).head(10)
+
+st.dataframe(
+    top_products_df,
+    use_container_width=True,
+    hide_index=True
+)
+
+# -------------------------------------------------
 # AI INSIGHTS
 # -------------------------------------------------
 st.subheader("🔍 Forecast Insights")
 
-weekly_forecast = int(sum(forecast_values[:7]))
+weekly_forecast = int(
+    sum(forecast_values[:7])
+)
 
 growth_percent = round(
     (
@@ -471,14 +551,14 @@ peak_date = forecast_df.loc[
 ]
 
 st.success(
-    f"Projected demand for the next 7 days is "
-    f"approximately {weekly_forecast:,} units."
+    f"Projected sales during the next 7 days "
+    f"are approximately {weekly_forecast:,} units."
 )
 
 st.info(
-    f"Demand is expected to change by "
-    f"{growth_percent}% over the upcoming "
-    f"28-day forecast horizon."
+    f"Overall category demand is expected to "
+    f"change by {growth_percent}% over the "
+    f"next 28 days."
 )
 
 st.warning(
