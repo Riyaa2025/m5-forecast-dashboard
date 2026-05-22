@@ -7,7 +7,13 @@
 
 ## Dashboard Preview
 
-![Dashboard](screenshot.jpeg)
+## Store-Level Forecasting
+
+![Store Forecast](screenshot_1.jpeg)
+
+## Demand Insights & Analytics
+
+![Analytics](screenshot_2.jpeg)
 
 
 ---
